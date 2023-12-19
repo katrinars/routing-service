@@ -3,20 +3,32 @@ import csv
 
 
 class PackageHash:
+    """
+    Class that constructs a hash table to store the package objects.
+
+    source: https://srm--c.vf.force.com/apex/CourseArticle?id=kA03x000000e1g4CAA
+    """
 
     def __init__(self):
+        """
+        Initialize the hash table with 40 empty bucket lists. - O(1)
+        """
         self.size = 40
         self.table = [[] for _ in range(self.size)]
 
     def get_hash(self, package_id):
+        """
+        Get the hash of a package using the package ID key. - O(1)
+        """
         index = hash(package_id) % self.size
         bucket = self.table[index]
 
         return bucket
 
-    #
     def insert(self, package_id, package_data):
-
+        """
+        Insert or update a package using the package ID key and the package data list as the value. - O(n)
+        """
         bucket = self.get_hash(package_id)
         p = [package_id, package_data]
 
@@ -29,8 +41,10 @@ class PackageHash:
             bucket.append(p)
             return True
 
-    #
     def lookup(self, package_id):
+        """
+        Look up a package using the package ID. - O(n)
+        """
         bucket = self.get_hash(package_id)
         if bucket in self.table:
             for package in bucket:
@@ -41,15 +55,31 @@ class PackageHash:
         else:
             raise LookupError("Something went wrong with the lookup function. Try again.")
 
+    def resize(self, size=80):
+        """
+        Resize the hash table to fit the package size and copy over the existing values. - O(n³)
 
-# create Package class to access data later
+        source: https://medium.com/@erikbatista42/an-introduction-to-hash-tables-with-python-817772cad688
+        """
+        self.__init__()
+        self.size = size
+        self.table = [[] for _ in range(self.size)]
+        temp_packages = []
+        for package in self.table:
+            temp_packages.append(package)
+        for package_id, package_data in temp_packages:
+            self.insert(package_id, package_data)
+
+
 class Package:
     """
-
+    Class that constructs and holds package objects.
     """
 
-    #
-    def __init__(self, package_id, address, city, state, zip_code, deadline, weight, notes):
+    def __init__(self, package_id, address, city, state, zip_code, deadline, weight, notes, truck):
+        """
+        Initialize the package object with the package csv headers as attributes. - O(1)
+        """
         self.package_id = package_id
         self.address = address
         self.city = city
@@ -58,190 +88,218 @@ class Package:
         self.deadline = deadline
         self.weight = weight
         self.notes = notes
-        self.status = "at hub"
+        self.status = "at the hub"
         self.dispatch_time = datetime.datetime.strptime("00:00", '%H:%M')
         self.delivery_time = datetime.datetime.strptime("00:00", '%H:%M')
-        self.tag = []
+        self.truck = None
 
-    #
     def __str__(self):
+        """
+        Return a string representation of the package object. - O(1)
+        """
         return "%s, %s, %s, %s, %s, %s, %s %s, %s, %s" % (
             self.package_id, self.address, self.city, self.state, self.zip_code,
             self.weight, self.deadline, self.notes, self.status, self.delivery_time)
 
 
-dldPackages = PackageHash()
+dldPackages = PackageHash()  # Create an instance of the package hash table.
 
 
 def read_packages():
     """
-    Read package data from csv file and sort packages into load list based on notes, deadlines, and locations.
-    :return: sorted Package Hash Table
-    :return: list of load lists
+    Read the packages csv and sort the packages into truck load lists based on notes, deadlines, and locations. - O(n)
+
+    :return: list of loads, which are filled with package IDs for the packages to load onto each truck.
     """
+
+
     buddies = set()
     loads = {1: [], 2: [], 3: []}
     sort_list = []
     loaded_list = []
+    EOD = datetime.datetime.strptime("16:59:59", '%H:%M:%S')
 
     with (open('csv/packages.csv') as package_file):
         package_reader = csv.reader(package_file, delimiter=',')
         next(package_reader)
 
-        # Store data from rows into variables from csv header. Create time object for package deadlines.
+        # Store data from rows into variables corresponding to the Package class attributes.
         for rows in package_reader:
             package_id = int(rows[0])
             address = rows[1]
             city = rows[2]
             state = rows[3]
             zip_code = rows[4]
-            deadline = datetime.datetime.strptime(rows[5], '%H:%M %p').time() if rows[5][0].isnumeric() else datetime.datetime.strptime("11:59 pm", '%H:%M %p').time()
+            deadline = datetime.datetime.strptime(rows[5], '%H:%M %p') if rows[5][0].isnumeric() else EOD
             weight = rows[6]
             notes = rows[7]
+            truck = None
 
-            # Create Package object for each row and insert into hash table
-            p = Package(package_id, address, city, state, zip_code, deadline, weight, notes)
+            # Create Package object for each row and insert it into the hash table instance.
+            p = Package(package_id, address, city, state, zip_code, deadline, weight, notes, truck)
             dldPackages.insert(package_id, p)
 
-            to_sort = [package_id, address, zip_code, deadline, notes]
-            sort_list.append(to_sort)
-            sort_copy = sort_list.copy()
+            # Insert the packages into a sort list for tracking. Copy the list to avoid removal and iteration errors.
+            sort_list.append(p)
+        sort_list.sort(key=lambda package: package.deadline)
+        sort_copy = sort_list.copy()
 
-        '''
-        Iterate through the list of packages to sort to find and place packages with mandatory truck placements.
-        '''
-        for parsel in enumerate(sort_list):
+        # Sort each package in the sort list into a load list via the sorting criteria.
+        for parcel in sort_list:
+            if parcel.notes:
 
-            package_id, address, zip_code, deadline, notes = parsel[1][0:5]
-
-            # If the notes specify placement on a specific truck, add the package_id to the load list for that truck.
-            if 'on truck' in notes:
-                the_truck = notes.split()[-1]
-                loads[int(the_truck)].append(package_id)
-                loaded_list.append(parsel[1])
-                continue
-
-
-            # Else, if the notes indicate that the package's address will be updated later, add the package to the load list for the latest truck departure.
-            elif 'Wrong address' in notes:
-                loads[3].append(package_id)
-                loaded_list.append(parsel[1])
-                continue
-
-
-            # Else, if the package must be delivered with other packages, find the package_id for each package in the group and add to the buddies set.
-            elif 'delivered with' in notes:
-                pointer = notes.find('with') + 5
-                group = notes[pointer:].split(', ')
-                buddies.add(package_id)
-                for each in group:
-                    buddies.add(int(each))
-
-
-            # Else, if the notes indicate the package will be delayed, find the time the package arrives, then sort based on truck departure time.
-            elif 'Delayed' in notes:
-                departure = notes.split(' ')
-                for string in departure:
-                    if string[0].isnumeric():
-                        departure = datetime.datetime.strptime(string, '%H:%M').time()
-                if departure.hour < 9:
-                    loads[1].append(package_id)
-                    loaded_list.append(parsel[1])
+                # If the notes specify placement on a specific truck, add the package_id to the corresponding load list.
+                if 'on truck' in parcel.notes:
+                    the_truck = parcel.notes.split()[-1]
+                    loads[int(the_truck)].append(parcel.package_id)
+                    loaded_list.append(parcel)
                     continue
 
-                elif departure.hour < 10 or departure.hour == 10 and departure.minute < 20:
-                    loads[2].append(package_id)
-                    loaded_list.append(parsel[1])
+
+                # If the address will be updated later, add the package to the Truck 3 load list.
+                elif 'Wrong address' in parcel.notes:
+                    loads[3].append(parcel.package_id)
+                    loaded_list.append(parcel)
                     continue
 
-                else:
-                    loads[3].append(package_id)
-                    loaded_list.append(parsel[1])
-                    continue
 
-        # For the package_id's in buddies, add them all to load 1, then remove any that are present from any other loads.
-        for parsel in sort_list:
-            for buddy in buddies:
-                if parsel[0] == buddy:
-                    if buddy in loads[1]:
+                # If the package must be delivered with other packages, add all related package IDs to the list for Truck 1.
+                elif 'delivered with' in parcel.notes:
+                    pointer = parcel.notes.find('with') + 5
+                    group = parcel.notes[pointer:].split(', ')
+                    buddies.add(parcel.package_id)
+                    loaded_list.append(parcel)
+                    if parcel.package_id not in loads[1]:
+                        loads[1].append(parcel.package_id)
+                        for buddy in group:
+                            buddies.add(int(buddy))
+                            for p in sort_copy:
+                                if int(buddy) == p.package_id and p.package_id not in loads[1]:
+                                    loads[1].append(p.package_id)
+                                    loaded_list.append(p)
+
+
+                # If the package will be delayed, find the hub arrival time and sort into lists based on truck departure.
+                elif 'Delayed' in parcel.notes:
+                    departure = parcel.notes.split(' ')
+                    for string in departure:
+                        if string[0].isnumeric():
+                            departure = datetime.datetime.strptime(string, '%H:%M').time()
+                    if departure.hour < 9:
+                        loads[1].append(parcel.package_id)
+                        loaded_list.append(parcel)
                         continue
-                    else:
-                        loads[1].append(parsel[0])
-                    loaded_list.append(parsel)
-                    if buddy in loads[2]:
-                        loads[2].remove(buddy)
-                    if buddy in loads[3]:
-                        loads[3].remove(buddy)
-                continue
 
-        # Remove packages that have been assigned to a truck from the sort list
+                    elif departure.hour < 10 or departure.hour == 10 and departure.minute < 20:
+                        loads[2].append(parcel.package_id)
+                        loaded_list.append(parcel)
+                        continue
+
+                    else:
+                        loads[3].append(parcel.package_id)
+                        loaded_list.append(parcel)
+                        continue
+
+        # Remove packages that have been assigned to a load list from the sort list.
         for p_id in loads[1], loads[2], loads[3]:
             for the_id in p_id:
-                for parsel in sort_copy:
-                    if int(parsel[0]) == the_id:
-                        sort_list.remove(parsel)
+                for parcel in sort_copy:
+                    if parcel.package_id == the_id:
+                        sort_list.remove(parcel)
                 continue
 
-        sort_copy = sort_list
+        sort_copy = sort_list.copy()
+        locales1, locales2, locales3 = [], [], []
 
-        # Add priority deadline packages to load 1 or 2 if packages in load have a matching address or zip code.
-        for load in loads[1], loads[2]:
+        # Get list of addresses and zip codes for packages in each load list as locales.
+        for load in loads[1]:
             for loaded in loaded_list:
-                if loaded[0] in load:
-                    for parsel in sort_copy:
-                        if parsel[1] == loaded[1] and parsel[3] != '23:59' or parsel[2] == loaded[2] and parsel[3] != '23:59':
-                            if len(load) < 16:
-                                load.append(parsel[0])
-                                sort_list.remove(parsel)
-
-        sort_copy = sort_list
-
-        # Add priority deadline packages with no matching address or zip code to first available load.
-        for load in loads[1], loads[2]:
+                if loaded.package_id == load:
+                    locales1.append(loaded.address)
+                    locales1.append(loaded.zip_code)
+        for load in loads[2]:
             for loaded in loaded_list:
-                if loaded[0] in load:
-                    for parsel in sort_copy:
-                        if parsel[3] != '23:59':
-                            if len(load) < 16:
-                                load.append(parsel[0])
-                                sort_list.remove(parsel)
+                if loaded.package_id == load:
+                    locales2.append(loaded.address)
+                    locales2.append(loaded.zip_code)
+        for load in loads[3]:
+            for loaded in loaded_list:
+                if loaded.package_id == load:
+                    locales3.append(loaded.address)
+                    locales3.append(loaded.zip_code)
 
-        sort_copy = sort_list
+        # Add early deadline packages to load list 1 if the address or zip code matches an already-present locale.
+        for parcel in sort_copy:
+            if parcel.deadline != EOD:
+                if parcel.address in locales1 and len(loads[1]) < 16 or parcel.zip_code in locales1 and len(
+                        loads[1]) < 16:
+                    loads[1].append(parcel.package_id)
+                    loaded_list.append(parcel)
+                    sort_list.remove(parcel)
 
-        # Add 'EOD' deadline packages to any load with a matching address
+        sort_copy = sort_list.copy()
+
+        # Add early deadline packages with no matching locale to load 1. Exit loop when EOD is reached.
+        for parcel in sort_copy:
+            if parcel.deadline != EOD:
+                loads[1].append(parcel.package_id)
+                sort_list.remove(parcel)
+            elif parcel.deadline == EOD:
+                break
+
+        sort_copy = sort_list.copy()
+
+        # Add remaining packages to any load under capacity with a matching address.
         for load in loads[1], loads[2], loads[3]:
             for loaded in loaded_list:
-                if loaded[0] in load:
-                    for parsel in sort_copy:
-                        if parsel[1] == loaded[1]:
+                if loaded.package_id in load:
+                    for parcel in sort_copy:
+                        if parcel.address == loaded.address:
                             if len(load) < 16:
-                                load.append(parsel[0])
-                                sort_list.remove(parsel)
+                                load.append(parcel.package_id)
+                                sort_list.remove(parcel)
 
         sort_copy = sort_list
 
-        # Add 'EOD' deadline packages to any load with a matching zip code
+        # Add remaining packages to any load under capacity with a matching zip code.
         for load in loads[1], loads[2], loads[3]:
             for loaded in loaded_list:
-                if loaded[0] in load:
-                    for parsel in sort_copy:
-                        if parsel[2] == loaded[2]:
+                if loaded.package_id in load:
+                    for parcel in sort_copy:
+                        if parcel.zip_code == loaded.zip_code:
                             if len(load) < 16:
-                                load.append(parsel[0])
-                                sort_list.remove(parsel)
+                                load.append(parcel.package_id)
+                                sort_list.remove(parcel)
 
-        # Add remaining packages to the load with the least number of packages, as long as it stays under capacity.
-        for parsel in sort_list.copy():
+        # Add remaining packages to the load with the least number of packages, or raise error if all loads at capacity.
+        for parcel in sort_list.copy():
             if len(loads[1]) < 16 and len(loads[1]) < len(loads[2]) and len(loads[1]) < len(loads[3]):
-                load.append(parsel[0])
-                sort_list.remove(parsel)
-            elif len(loads[1]) < 16 and len(loads[1]) < len(loads[2]) and len(loads[1]) < len(loads[3]):
-                load.append(parsel[0])
-                sort_list.remove(parsel)
+                load.append(parcel.package_id)
+                sort_list.remove(parcel)
+            elif len(loads[2]) < 16 and len(loads[2]) < len(loads[1]) and len(loads[2]) < len(loads[3]):
+                load.append(parcel.package_id)
+                sort_list.remove(parcel)
             elif len(loads[3]) < 16 and len(loads[3]) < len(loads[2]) and len(loads[3]) < len(loads[1]):
-                load.append(parsel[0])
-                sort_list.remove(parsel)
+                load.append(parcel.package_id)
+                sort_list.remove(parcel)
             else:
                 raise IndexError('There is no space in the trucks')
 
-        return sorted(dldPackages.table), loads
+        return loads
+
+
+def update_statuses(query_time):
+    """
+    Update the statuses of each package based on the query time and its dispatch and delivery times. - O(n)
+
+    :param query_time: the user input time or the current time at the start of the program
+    """
+    for i in range(1, 41):
+        p = dldPackages.lookup(i)
+
+        if query_time < p.dispatch_time.time():
+            p.status = "at the hub"
+        elif p.dispatch_time.time() <= query_time < p.delivery_time.time():
+            p.status = "en route"
+        elif query_time >= p.delivery_time.time():
+            p.status = "delivered"

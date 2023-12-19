@@ -22,6 +22,8 @@
           <option value="package.Package.*" />
           <option value="typing.TextIO.reader" />
           <option value="str.append" />
+          <option value="file" />
+          <option value="str.__or__" />
         </list>
       </option>
     </inspection_tool>

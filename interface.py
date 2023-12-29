@@ -7,7 +7,7 @@ import truck
 
 def interface_main():
     """
-    Print menu with the option to generate reports based on the current time or a custom input time.
+    Print menu with the option to generate reports based on the current time or a custom input time. - O(1)
     """
 
     # Loop a menu with time options until a valid entry is made, then route to the correct menu.
@@ -73,13 +73,17 @@ def user_time_menu():
     """
 
     # Get user's desired query time and validate or print error and loop until valid, then print report options menu.
-    while True:
 
-        query_time = (input('\n\n\n\n\033[1;35;40mEnter the Query Time (HH:MM am/pm): '))
-        try:
-            query_time = datetime.datetime.strptime(query_time, '%I:%M %p').time()
-        except ValueError:
-            print('\n\n\033[0;31;40mInvalid entry. Please use 12-hour format, followed by a space and either \'am\' or \'pm\'.\n\n')
+
+    query_time = (input('\n\n\n\n\033[1;35;40mEnter the Query Time (HH:MM am/pm): '))
+    try:
+        query_time = datetime.datetime.strptime(query_time, '%I:%M %p').time()
+    except ValueError:
+        print('\n\n\033[0;31;40mInvalid entry. Please use 12-hour format, followed by a space and either \'am\' or \'pm\'.\n\n')
+        user_time_menu()
+
+
+    while True:
 
         print(f'\033[0;35;40mYou entered {query_time.strftime('%I:%M %p')}.\n\n'
 
@@ -114,7 +118,6 @@ def print_all_packages(query_time):
 
     # Update status of packages based on query time and populate miles for the day.
     package.update_statuses(query_time)
-    total_miles = truck.trucks[0].miles_traveled + truck.trucks[1].miles_traveled + truck.trucks[2].miles_traveled
 
     # Assign header strings for printing.
     id_header = 'ID'
@@ -189,9 +192,10 @@ def package_lookup(query_time):
     parcel = package.dldPackages.lookup(p_query)
 
     # Print report header.
-    print('\n\n\033[1;36;40m{:^145}'.format('----------------------------------------------------------------------'))
-    print('{:^145}'.format('                             PACKAGE QUERY                           '))
-    print('{:^145}'.format('----------------------------------------------------------------------'))
+    print('\n\n\033[1;36;40m----------------------------------------------------------')
+    print('                     PACKAGE QUERY                  ')
+    print(f'\033[0;36;40m                  query time: {query_time.strftime('%I:%M %p')}       ')
+    print('----------------------------------------------------------')
 
     # Print package information.
     print('\n\033[0;36;40m')
@@ -202,13 +206,20 @@ def package_lookup(query_time):
           f'Weight(kg): {parcel.weight}\n'
           f'Delivery Deadline: {parcel.deadline.time().strftime('%I:%M %p')}\n'
           f'Notes: {parcel.notes}\n'
-          f'Status: {parcel.status}\n'
           f'Truck: {parcel.truck}\n'
+          f'Status: {parcel.status}\n'
+
           )
     if query_time < parcel.delivery_time.time():
         print(f'\033[1;36;40mProjected Delivery Time: {parcel.delivery_time.time().strftime('%I:%M %p')}')
     elif query_time >= parcel.delivery_time.time():
-        print(f'\033[1;36;40mThis package was delivered at {parcel.delivery_time.time().strftime('%I:%M %p')}')
+        print(f'\033[1;36;40mDelivered At: {parcel.delivery_time.time().strftime('%I:%M %p')}')
+
+    distances = distance.read_distances()
+    l1, m1 = truck.take_route(query_time, truck.trucks[0], distances)
+    l2, m2 = truck.take_route(query_time, truck.trucks[0], distances)
+    l3, m3 = truck.take_route(query_time, truck.trucks[0], distances)
+    print(f'\nCURRENT CUMULATIVE TRUCK MILES: {round(m1 + m2 + m3, 1)}')
 
     print()
 
@@ -266,7 +277,7 @@ def truck_stats(query_time):
     print(f'\033[0;37;40mDeparture Time: {truck.trucks[0].departure_time.time().strftime('%I:%M %p')}')
     print(f'Driver: {truck.trucks[0].driver}')
     print(f'Today\'s Packages: ' + ', '.join(truck1_packages))
-    progress_location1, progress_miles1 = truck.get_truck_progress(query_time, truck.trucks[0], distances)
+    progress_location1, progress_miles1 = truck.take_route(query_time, truck.trucks[0], distances)
     print('\n\033[0;34;40mCURRENT PROGRESS')
     print(f'\033[0;37;40mMost Recent Location: {locations[progress_location1]}')
     print(f'Miles Traveled so Far: {round(progress_miles1, 1)}')
@@ -280,7 +291,7 @@ def truck_stats(query_time):
     print(f'\033[0;37;40mDeparture Time: {truck.trucks[1].departure_time.time().strftime('%I:%M %p')}')
     print(f'Driver: {truck.trucks[1].driver}')
     print(f'Today\'s Packages: ' + ', '.join(truck2_packages))
-    progress_location2, progress_miles2 = truck.get_truck_progress(query_time, truck.trucks[1], distances)
+    progress_location2, progress_miles2 = truck.take_route(query_time, truck.trucks[1], distances)
     print('\n\033[0;34;40mCURRENT PROGRESS')
     print(f'\033[0;37;40mMost Recent Location: {locations[progress_location2]}')
     print(f'Miles Traveled so Far: {round(progress_miles2, 1)}')
@@ -293,7 +304,7 @@ def truck_stats(query_time):
     print(f'\033[0;37;40mDeparture Time: {truck.trucks[2].departure_time.time().strftime('%I:%M %p')}')
     print(f'Driver: {truck.trucks[2].driver}')
     print(f'Today\'s Packages: ' + ', '.join(truck3_packages))
-    progress_location3, progress_miles3 = truck.get_truck_progress(query_time, truck.trucks[2], distances)
+    progress_location3, progress_miles3 = truck.take_route(query_time, truck.trucks[2], distances)
     print('\n\033[0;34;40mCURRENT PROGRESS')
     print(f'\033[0;37;40mMost Recent Location: {locations[progress_location3]}')
     print(f'Miles Traveled so Far: {round(progress_miles3, 1)}')

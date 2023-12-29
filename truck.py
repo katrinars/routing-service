@@ -10,7 +10,7 @@ class Truck:
 
     def __init__(self, truck_id, departure_time, driver):
         """
-        Initialize the truck object.
+        Initialize the truck object. - O(1)
 
         :param truck_id: integer ID value of the truck
         :param departure_time: datetime object representing the time the truck leaves the WGU Hub
@@ -56,7 +56,7 @@ def load_trucks(loads):
     return trucks
 
 
-def get_truck_progress(query_time, the_truck, distances):
+def take_route(query_time, the_truck, distances):
     """
     Calculate the progress of a truck at the query time. - O(n)
 

@@ -56,6 +56,8 @@ def three_opt(the_truck, distances, places):
     :param the_truck: truck objects with the route to perform the algorithm on
     :param distances: imported distances to s=use for route optimization
     :param places: location indices to use to connect with the distances data structure
+
+    (Python: Class 3-opt of TSP Is Very Slow - Speeding up Permutation Creation, n.d.)
     """
 
     start_location = places.index('4001 South 700 East')
@@ -84,27 +86,33 @@ def three_opt(the_truck, distances, places):
     while improved:
         improved = False
 
-        # Iterate through the route to select three locations as constants, then reverse different segments of locations
-        # between the constant locations to try to find a shorter route. - O(n³)
+
+        # Iterate through the route assigning three variables to neighboring locations.  - O(n³)
         for i in range(1, len(the_truck.packages) - 3):
             for j in range(i + 1, len(the_truck.packages) - 2):
                 for k in range(j + 1, len(the_truck.packages) - 1):
+
+                    # create a new_route by swapping the first and second variables, then swapping the third variable
+                    # with the location following it. - O(1)
                     new_route = (locations[:i] + locations[i:j + 1][::-1] + locations[j + 1:k + 1][::-1] +
                                  locations[k + 1:])
 
-                    # Calculate the distance from the WGU Hub to the first route location.
+                    # Calculate the distance from the WGU Hub to the first route location. - O(1)
                     start_of_best_route = [start_location, best_route[0]]
                     start_of_new_route = [start_location, new_route[0]]
 
-                    # Calculate the distance of the route.
+                    # Calculate the distance of the route. - O(1)
                     best_starting_distance = distance.get_distance(start_of_best_route, distances)
                     new_starting_distance = distance.get_distance(start_of_new_route, distances)
 
-                    # Determine whether the new or old route is better, with the start location incorporated.
+                    # Update best_route to the shortest route and repeat until there is no improvement made. O(1)
                     if (distance.get_distance(new_route, distances) + new_starting_distance) < (
                             distance.get_distance(best_route, distances) + best_starting_distance):
                         best_route = new_route
                         improved = True
+
+
+
 
     return best_route
 
@@ -145,7 +153,7 @@ def on_time(the_truck, distances, places):
     the_truck.miles_traveled = 0
     the_truck.location = 0
 
-    # Loop the truck route.
+    # Loop through the truck route.
     for i in range(len(the_truck.route) - 1):
         current_location = the_truck.route[i]
         next_location = the_truck.route[i + 1]
@@ -205,13 +213,14 @@ def swap_packages(truck1, truck2, distances, places):
                     return True
 
                 # Revert changes to each package if new routes are not on time.
-                truck1.packages.remove(parcel2)
-                truck2.packages.remove(parcel1)
-                truck1.packages.append(parcel1)
-                truck2.packages.append(parcel2)
-                parcel1.truck = 1
-                parcel2.truck = 2
-                truck1.route = current_route1
-                truck2.route = current_route2
+                else:
+                    truck1.packages.remove(parcel2)
+                    truck2.packages.remove(parcel1)
+                    truck1.packages.append(parcel1)
+                    truck2.packages.append(parcel2)
+                    parcel1.truck = 1
+                    parcel2.truck = 2
+                    truck1.route = current_route1
+                    truck2.route = current_route2
 
     return False

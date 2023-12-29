@@ -6,8 +6,10 @@ class PackageHash:
     """
     Class that constructs a hash table to store the package objects.
 
-    source: https://srm--c.vf.force.com/apex/CourseArticle?id=kA03x000000e1g4CAA
+    (Western Governors University, 2022)
     """
+    load_factor = 1.5
+    num_packages = 0
 
     def __init__(self):
         """
@@ -15,6 +17,7 @@ class PackageHash:
         """
         self.size = 40
         self.table = [[] for _ in range(self.size)]
+
 
     def get_hash(self, package_id):
         """
@@ -41,6 +44,12 @@ class PackageHash:
             bucket.append(p)
             return True
 
+        # track number of entries for rehashing at 150% capacity
+        self.num_packages += 1
+        load = self.num_packages / self.size
+        if load > self.load_factor:
+            self.resize()
+
     def lookup(self, package_id):
         """
         Look up a package using the package ID. - O(n)
@@ -55,18 +64,23 @@ class PackageHash:
         else:
             raise LookupError("Something went wrong with the lookup function. Try again.")
 
-    def resize(self, size=80):
+    def resize(self):
         """
-        Resize the hash table to fit the package size and copy over the existing values. - O(n³)
+        Resize the hash table to fit the package size and copy over the existing values. - O(n²)
 
-        source: https://medium.com/@erikbatista42/an-introduction-to-hash-tables-with-python-817772cad688
+        (GeeksforGeeks, 2023)
         """
-        self.__init__()
-        self.size = size
-        self.table = [[] for _ in range(self.size)]
+        # Copy existing packages into a temporary list.
         temp_packages = []
         for package in self.table:
             temp_packages.append(package)
+
+        # Create a new empty hash table and double the size
+        self.__init__()
+        self.size = self.size * 2
+        self.table = [[] for _ in range(self.size)]
+
+        # Insert the packages from the temporary list into the new hash table.
         for package_id, package_data in temp_packages:
             self.insert(package_id, package_data)
 
